@@ -34,7 +34,7 @@ const uint8_t STBY = 6;
 
 
 //CHANGE CODE
-const String FOLLOW_COLORS[] = {"BLACK", "BLUE", "YELLOW"};
+const String FOLLOW_COLORS[] = {"BLACK", "BLUE", "BLUE"};
 const int NUM_FOLLOW_COLORS = sizeof(FOLLOW_COLORS) / sizeof(FOLLOW_COLORS[0]);
 
 
@@ -43,19 +43,19 @@ const String LEFT_BOUNDARY_COLOR  = "WHITE";
 const String RIGHT_BOUNDARY_COLOR = "ORANGE";
 
 
-const String LEFT_TURN_MARKER  = "ORANGE";
-const String RIGHT_TURN_MARKER = "WHITE";
+const String LEFT_TURN_MARKER  = "GREEN";
+const String RIGHT_TURN_MARKER = "RED";
 
 
 // ================== SPEED CONTROLS ==================
 //50
 
 //CHANGE CODE
-const uint8_t FWD_PWM = 40;
-uint8_t PIVL_LEFT_PWM  = 60;
-uint8_t PIVL_RIGHT_PWM = 60;
-uint8_t PIVR_LEFT_PWM  = 60;
-uint8_t PIVR_RIGHT_PWM = 60;
+const uint8_t FWD_PWM = 50;
+uint8_t PIVL_LEFT_PWM  = 70;
+uint8_t PIVL_RIGHT_PWM = 70;
+uint8_t PIVR_LEFT_PWM  = 70;
+uint8_t PIVR_RIGHT_PWM = 70;
 
 
 // ================== COLOR SENSOR ==================
@@ -147,7 +147,7 @@ String detectColor(float r, float g, float b) {
   if ((r >= 85 && r <= 95) && (g >= 80 && g <= 87) && (b >= 55 && b <= 65)) return "WHITE";
   if ((r >= 125 && r <= 135) && (g >= 55 && g <= 65) && (b >= 50 && b <= 60)) return "PINK";
   if ((r >= 150 && r <= 180) && (g >= 35 && g <= 65) && (b >= 25 && b <= 55))   return "RED";
-  if ((r >= 85  && r <= 96) && (g >= 90 && g <= 95) && (b >= 50 && b <= 60))  return "GREEN";
+  if ((r >= 85  && r <= 100) && (g >= 87 && g <= 95) && (b >= 50 && b <= 60))  return "GREEN";
   if ((r >= 55  && r <= 75) && (g >= 65  && g <= 80) && (b >= 90 && b <= 120)) return "BLUE";
   if ((r >= 105 && r <= 130) && (g >= 85  && g <= 115) && (b >= 20 && b <= 50))  return "YELLOW";
   if ((r >= 95 && r <= 120) && (g >= 57   && g <= 70)  && (b >= 65 && b <= 75)) return "PURPLE";
@@ -241,18 +241,20 @@ void loop() {
 
   if (isFollowColor) {
     uint8_t pwm = FWD_PWM;
-    uint16_t step = 100;
+    uint16_t step = 15;
 
     if (justRecoveredFromBoundary) {
       // Be more gentle on the first step after a boundary correction
       pwm = 40;          // a bit slower
-      step = 25;         // shorter burst
+      step = 15;         // shorter burst
       justRecoveredFromBoundary = false;
     }
 
-    motorsForward(pwm, pwm);
-    delay(step);
-    return;
+    motorsForward(pwm, pwm);  // move
+    delay(step);              // for a short time
+    motorsBrake();            // stop
+    delay(step);              // small pause
+
   }
 
 
@@ -272,7 +274,7 @@ void loop() {
 
 
   // Recovery sequence
-  motorsForward(FWD_PWM, FWD_PWM); delay(100);
+  motorsForward(FWD_PWM, FWD_PWM); delay(70);
   motorsBrake(); delay(100);
 
 
@@ -285,8 +287,9 @@ void loop() {
     }
 
 
-  pivotLeft(PIVL_LEFT_PWM, PIVL_RIGHT_PWM); delay(300);
+  pivotLeft(70, 70); delay(100);
   motorsBrake(); delay(100);
+
 
 
   float rL, gL, bL;
@@ -298,7 +301,7 @@ void loop() {
     }
 
 
-  pivotRight(PIVR_LEFT_PWM, PIVR_RIGHT_PWM); delay(600);
+  pivotRight(70, 70); delay(600);
   motorsBrake(); delay(100);
 
 
