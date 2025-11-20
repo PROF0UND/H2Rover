@@ -34,7 +34,7 @@ const uint8_t STBY = 6;
 
 
 //CHANGE CODE
-const String FOLLOW_COLORS[] = {"BLACK", "RED", "YELLOW"};
+const String FOLLOW_COLORS[] = {"BLACK", "BLUE", "YELLOW"};
 const int NUM_FOLLOW_COLORS = sizeof(FOLLOW_COLORS) / sizeof(FOLLOW_COLORS[0]);
 
 
@@ -43,8 +43,8 @@ const String LEFT_BOUNDARY_COLOR  = "WHITE";
 const String RIGHT_BOUNDARY_COLOR = "ORANGE";
 
 
-const String LEFT_TURN_MARKER  = "BLUE";
-const String RIGHT_TURN_MARKER = "GREEN";
+const String LEFT_TURN_MARKER  = "ORANGE";
+const String RIGHT_TURN_MARKER = "WHITE";
 
 
 // ================== SPEED CONTROLS ==================
@@ -52,10 +52,10 @@ const String RIGHT_TURN_MARKER = "GREEN";
 
 //CHANGE CODE
 const uint8_t FWD_PWM = 40;
-uint8_t PIVL_LEFT_PWM  = 70;
-uint8_t PIVL_RIGHT_PWM = 70;
-uint8_t PIVR_LEFT_PWM  = 70;
-uint8_t PIVR_RIGHT_PWM = 70;
+uint8_t PIVL_LEFT_PWM  = 60;
+uint8_t PIVL_RIGHT_PWM = 60;
+uint8_t PIVR_LEFT_PWM  = 60;
+uint8_t PIVR_RIGHT_PWM = 60;
 
 
 // ================== COLOR SENSOR ==================
@@ -101,10 +101,11 @@ void pivotRight(uint8_t l, uint8_t r){
 void correctLeftBoundary() {
   float r, g, b;
   for (int i = 0; i < 10; i++) {           // a few quick nudges
+    delay(50);
     pivotRight(150, 150);                   // slightly stronger turn
     delay(100);                            // short movement
     motorsBrake();
-    delay(30);
+    delay(10);
 
     String c = readColorOnce(r, g, b);
 
@@ -122,10 +123,11 @@ void correctLeftBoundary() {
 void correctRightBoundary() {
   float r, g, b;
   for (int i = 0; i < 10; i++) {
-    pivotLeft(150, 150);
+    delay(50);
+   pivotLeft(150, 150);
     delay(100);
     motorsBrake();
-    delay(30);
+    delay(10);
 
     String c = readColorOnce(r, g, b);
 
@@ -142,10 +144,10 @@ void correctRightBoundary() {
 // ================== COLOR DETECTION ==================
 String detectColor(float r, float g, float b) {
   if ((r >= 100 && r <= 120) && (g >= 75 && g <= 90) && (b >= 50 && b <= 65)) return "BLACK";
-  if ((r >= 85 && r <= 95) && (g >= 80 && g <= 90) && (b >= 55 && b <= 65)) return "WHITE";
+  if ((r >= 85 && r <= 95) && (g >= 80 && g <= 87) && (b >= 55 && b <= 65)) return "WHITE";
   if ((r >= 125 && r <= 135) && (g >= 55 && g <= 65) && (b >= 50 && b <= 60)) return "PINK";
   if ((r >= 150 && r <= 180) && (g >= 35 && g <= 65) && (b >= 25 && b <= 55))   return "RED";
-  if ((r >= 85  && r <= 96) && (g >= 90 && g <= 95) && (b >= 50 && b <= 59))  return "GREEN";
+  if ((r >= 85  && r <= 96) && (g >= 90 && g <= 95) && (b >= 50 && b <= 60))  return "GREEN";
   if ((r >= 55  && r <= 75) && (g >= 65  && g <= 80) && (b >= 90 && b <= 120)) return "BLUE";
   if ((r >= 105 && r <= 130) && (g >= 85  && g <= 115) && (b >= 20 && b <= 50))  return "YELLOW";
   if ((r >= 95 && r <= 120) && (g >= 57   && g <= 70)  && (b >= 65 && b <= 75)) return "PURPLE";
@@ -153,7 +155,7 @@ String detectColor(float r, float g, float b) {
   return "UNKNOWN";
 }
 
-
+//maybe something here can change the speed of the color sensor?
 inline String readColorOnce(float &r, float &g, float &b) {
   tcs.setInterrupt(false); delay(30);
   tcs.getRGB(&r, &g, &b);
@@ -215,34 +217,10 @@ void loop() {
   Serial.println(color);
 
 
-  if (color == LEFT_TURN_MARKER) {
-    motorsBrake(); 
-    delay(100);
-
-    if (!firstTimeTurned) {
-      float r, g, b;
-
-      for (int i = 0; i < 20; i++) {
-        pivotLeft(150, 150);
-        delay(60);
-        motorsBrake();
-        delay(15);
-
-        String c = readColorOnce(r, g, b);
-        
-        // Stop turn when back on BLACK/BLUE/YELLOW
-        for (int j = 0; j < NUM_FOLLOW_COLORS; j++) {
-          if (c == FOLLOW_COLORS[j]) {
-            firstTimeTurned = true;
-            return;
-          }
-        }
-      }
-
-      motorsBrake();
-      firstTimeTurned = true;
-    }
-
+   if (color == LEFT_TURN_MARKER) {
+    motorsBrake(); delay(100);
+    correctRightBoundary();
+    
     return;
   }
 
