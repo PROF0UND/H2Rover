@@ -51,7 +51,7 @@ const String RIGHT_TURN_MARKER = "RED";
 //50
 
 //CHANGE CODE
-const uint8_t FWD_PWM = 50;
+const uint8_t FWD_PWM = 45;
 uint8_t PIVL_LEFT_PWM  = 70;
 uint8_t PIVL_RIGHT_PWM = 70;
 uint8_t PIVR_LEFT_PWM  = 70;
@@ -99,7 +99,7 @@ void pivotRight(uint8_t l, uint8_t r){
 }
 
 void correctLeftBoundary() {
-  float r, g, b;
+  float r, g, b, lux;
   for (int i = 0; i < 10; i++) {           // a few quick nudges
     delay(50);
     pivotRight(150, 150);                   // slightly stronger turn
@@ -107,7 +107,7 @@ void correctLeftBoundary() {
     motorsBrake();
     delay(10);
 
-    String c = readColorOnce(r, g, b);
+    String c = readColorOnce(r, g, b, lux);
 
     // Still on WHITE? Keep nudging.
     if (c == LEFT_BOUNDARY_COLOR) continue;
@@ -121,7 +121,7 @@ void correctLeftBoundary() {
 }
 
 void correctRightBoundary() {
-  float r, g, b;
+  float r, g, b, lux;
   for (int i = 0; i < 10; i++) {
     delay(50);
    pivotLeft(150, 150);
@@ -129,7 +129,7 @@ void correctRightBoundary() {
     motorsBrake();
     delay(10);
 
-    String c = readColorOnce(r, g, b);
+    String c = readColorOnce(r, g, b, lux);
 
     if (c == RIGHT_BOUNDARY_COLOR) continue;
 
@@ -142,8 +142,8 @@ void correctRightBoundary() {
 
 
 // ================== COLOR DETECTION ==================
-String detectColor(float r, float g, float b) {
-  if ((r >= 100 && r <= 120) && (g >= 75 && g <= 90) && (b >= 50 && b <= 65)) return "BLACK";
+String detectColor(float r, float g, float b, float lux) {
+  if ((r >= 100 && r <= 120) && (g >= 75 && g <= 90) && (b >= 50 && b <= 65) && (lux >= 7 && lux <= 20)) return "BLACK";
   if ((r >= 85 && r <= 95) && (g >= 80 && g <= 87) && (b >= 55 && b <= 65)) return "WHITE";
   if ((r >= 125 && r <= 135) && (g >= 55 && g <= 65) && (b >= 50 && b <= 60)) return "PINK";
   if ((r >= 150 && r <= 180) && (g >= 35 && g <= 65) && (b >= 25 && b <= 55))   return "RED";
@@ -156,12 +156,21 @@ String detectColor(float r, float g, float b) {
 }
 
 //maybe something here can change the speed of the color sensor?
-inline String readColorOnce(float &r, float &g, float &b) {
-  tcs.setInterrupt(false); delay(30);
-  tcs.getRGB(&r, &g, &b);
-  tcs.setInterrupt(true);
-  return detectColor(r, g, b);
+inline String readColorOnce(float &r, float &g, float &b, float &lux) {
+    // Get nice 0–255 RGB for your thresholds
+    tcs.setInterrupt(false);
+    delay(30);
+    tcs.getRGB(&r, &g, &b);
+    tcs.setInterrupt(true);
+
+    // Optional: also compute lux from raw data
+    uint16_t c, ri, gi, bi;
+    tcs.getRawData(&ri, &gi, &bi, &c);
+    lux = tcs.calculateLux(ri, gi, bi);
+
+    return detectColor(r, g, b, lux);   // lux is not used now, but ok
 }
+
 
 
 // ================== SETUP ==================
@@ -205,14 +214,16 @@ void loop() {
 
 
   /************** READ COLOR SENSOR **************/
-  float r, g, b;
-  String color = readColorOnce(r, g, b);
+  float r, g, b, lux;
+  String color = readColorOnce(r, g, b, lux);
 
 
   Serial.print("RGB: ");
   Serial.print(int(r)); Serial.print(",");
   Serial.print(int(g)); Serial.print(",");
-  Serial.print(int(b));
+  Serial.print(int(b)); Serial.print(",");
+  Serial.print(int(lux));
+
   Serial.print(" -> ");
   Serial.println(color);
 
@@ -241,6 +252,7 @@ void loop() {
 
   if (isFollowColor) {
     uint8_t pwm = FWD_PWM;
+    delay(500);
     uint16_t step = 15;
 
     if (justRecoveredFromBoundary) {
@@ -251,9 +263,9 @@ void loop() {
     }
 
     motorsForward(pwm, pwm);  // move
-    delay(step);              // for a short time
+    delay(150);              // for a short time (step)
     motorsBrake();            // stop
-    delay(step);              // small pause
+    delay(500);              // small pause (step)
 
   }
 
@@ -278,42 +290,66 @@ void loop() {
   motorsBrake(); delay(100);
 
 
-  float rN, gN, bN;
-  String colorN = readColorOnce(rN, gN, bN);
+  float rN, gN, bN, luxN;
+  String colorN = readColorOnce(rN, gN, bN, luxN);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
     if (colorN == FOLLOW_COLORS[i]) {
       motorsForward(FWD_PWM, FWD_PWM);
+      //delay(step);   //edited
       return;
     }
 
 
-  pivotLeft(70, 70); delay(100);
-  motorsBrake(); delay(100);
+  pivotLeft(70, 70); delay(600);
+  motorsBrake(); delay(400);
 
 
 
-  float rL, gL, bL;
-  String colorL = readColorOnce(rL, gL, bL);
+  float rL, gL, bL, luxL;
+  String colorL = readColorOnce(rL, gL, bL, luxN);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
     if (colorL == FOLLOW_COLORS[i]) {
       motorsForward(FWD_PWM, FWD_PWM);
+      //delay(step) ;  //edited
       return;
     }
 
 
   pivotRight(70, 70); delay(600);
-  motorsBrake(); delay(100);
+  motorsBrake(); delay(400);
 
-
-  float rR, gR, bR;
-  String colorR = readColorOnce(rR, gR, bR);
+  float rR, gR, bR, luxR;
+  String colorR = readColorOnce(rR, gR, bR, luxN);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
     if (colorR == FOLLOW_COLORS[i]) {
       motorsForward(FWD_PWM, FWD_PWM);
+      //delay(step);   //edited
+      return;
+    }
+
+  pivotRight(70, 70); delay(600);
+  motorsBrake(); delay(400);
+
+  colorR = readColorOnce(rR, gR, bR, luxN);
+  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
+    if (colorR == FOLLOW_COLORS[i]) {
+      motorsForward(FWD_PWM, FWD_PWM);
+      //delay(step);   //edited
+      return;
+    }
+
+  pivotLeft(70, 70); delay(600);
+  motorsBrake(); delay(400);
+
+  colorN = readColorOnce(rN, gN, bN, luxN);
+  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
+    if (colorN == FOLLOW_COLORS[i]) {
+      motorsForward(FWD_PWM, FWD_PWM);
+      //delay(step);   //edited
       return;
     }
 
 
   motorsBrake();
-  delay(300);
+  delay(10);
 }
