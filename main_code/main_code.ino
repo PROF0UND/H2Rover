@@ -34,7 +34,7 @@ const uint8_t STBY = 6;
 
 
 //CHANGE CODE
-const String FOLLOW_COLORS[] = {"BLACK", "BLUE", "BLUE"};
+const String FOLLOW_COLORS[] = {"BLACK", "GREEN", "GREEN"};
 const int NUM_FOLLOW_COLORS = sizeof(FOLLOW_COLORS) / sizeof(FOLLOW_COLORS[0]);
 
 
@@ -43,15 +43,16 @@ const String LEFT_BOUNDARY_COLOR  = "WHITE";
 const String RIGHT_BOUNDARY_COLOR = "ORANGE";
 
 
-const String LEFT_TURN_MARKER  = "GREEN";
-const String RIGHT_TURN_MARKER = "RED";
+//color on the right
+const String LEFT_TURN_MARKER  = "RED";
+const String RIGHT_TURN_MARKER = "BLUE";
 
 
 // ================== SPEED CONTROLS ==================
 //50
 
 //CHANGE CODE
-const uint8_t FWD_PWM = 45;
+const uint8_t FWD_PWM = 60;
 uint8_t PIVL_LEFT_PWM  = 70;
 uint8_t PIVL_RIGHT_PWM = 70;
 uint8_t PIVR_LEFT_PWM  = 70;
@@ -98,12 +99,18 @@ void pivotRight(uint8_t l, uint8_t r){
   rightMotorBackward(r);
 }
 
+void motorsBackward(uint8_t l, uint8_t r){
+  leftMotorForward(l);
+  rightMotorForward(r);
+}
+
+
 void correctLeftBoundary() {
   float r, g, b, lux;
   for (int i = 0; i < 10; i++) {           // a few quick nudges
     delay(50);
     pivotRight(150, 150);                   // slightly stronger turn
-    delay(100);                            // short movement
+    delay(150);                            // short movement
     motorsBrake();
     delay(10);
 
@@ -125,7 +132,7 @@ void correctRightBoundary() {
   for (int i = 0; i < 10; i++) {
     delay(50);
    pivotLeft(150, 150);
-    delay(100);
+    delay(150);
     motorsBrake();
     delay(10);
 
@@ -138,6 +145,71 @@ void correctRightBoundary() {
   }
   motorsBrake();
 }
+
+// =======================================================
+//  HANDLE COLOR REACTION (your whole block as a function)
+// =======================================================
+bool handleColorReaction(String color, float r, float g, float b, float lux) {
+
+  // ---------- TURN MARKERS ----------
+  if (color == LEFT_TURN_MARKER) {
+    motorsBrake(); delay(100);
+    correctRightBoundary();
+    return true;   // handled
+  }
+
+  if (color == RIGHT_TURN_MARKER) {
+    motorsBrake(); delay(100);
+    correctLeftBoundary();
+    return true;
+  }
+
+  // ---------- FLOOR FALL PROTECTION ----------
+  if (color == "FLOOR") {
+    motorsBrake(); delay(100);
+    motorsBackward(50, 50); delay(10);
+    return true;
+  }
+
+  // ---------- FOLLOW-COLORS ----------
+  bool isFollowColor = false;
+  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
+    if (color == FOLLOW_COLORS[i]) isFollowColor = true;
+
+  if (isFollowColor) {
+    uint8_t pwm = FWD_PWM;
+    uint16_t step = 15;
+
+    if (justRecoveredFromBoundary) {
+      pwm = 40;
+      step = 15;
+      justRecoveredFromBoundary = false;
+    }
+
+    motorsForward(pwm, pwm);
+    delay(150);
+    motorsBrake();
+    delay(150);
+
+    return true;
+  }
+
+  // ---------- BOUNDARIES ----------
+  if (color == LEFT_BOUNDARY_COLOR) {
+    motorsBrake(); delay(100);
+    correctLeftBoundary();
+    return true;
+  }
+
+  if (color == RIGHT_BOUNDARY_COLOR) {
+    motorsBrake(); delay(100);
+    correctRightBoundary();
+    return true;
+  }
+
+  return false;   // No reaction → normal recovery sequence should continue
+}
+
 
 
 
@@ -152,6 +224,7 @@ String detectColor(float r, float g, float b, float lux) {
   if ((r >= 105 && r <= 130) && (g >= 85  && g <= 115) && (b >= 20 && b <= 50))  return "YELLOW";
   if ((r >= 95 && r <= 120) && (g >= 57   && g <= 70)  && (b >= 65 && b <= 75)) return "PURPLE";
   if ((r >= 135 && r <= 150) && (g >= 60   && g <= 70)  && (b >= 25 && b <= 40)) return "ORANGE";
+  if ((r >= 98 && r <= 104) && (g >= 78   && g <= 84)  && (b >= 48 && b <= 57)) return "FLOOR";
   return "UNKNOWN";
 }
 
@@ -235,6 +308,12 @@ void loop() {
     return;
   }
 
+  
+  if (color == "FLOOR" ){
+    motorsBrake(); delay(100);
+    motorsBackward(50, 50); delay(10);
+    return;
+  }
 
 
   if (color == RIGHT_TURN_MARKER) {
@@ -265,7 +344,7 @@ void loop() {
     motorsForward(pwm, pwm);  // move
     delay(150);              // for a short time (step)
     motorsBrake();            // stop
-    delay(500);              // small pause (step)
+    delay(150);              // small pause (step)
 
   }
 
@@ -292,6 +371,14 @@ void loop() {
 
   float rN, gN, bN, luxN;
   String colorN = readColorOnce(rN, gN, bN, luxN);
+  Serial.print("RGB: ");
+  Serial.print(int(rN)); Serial.print(",");
+  Serial.print(int(gN)); Serial.print(",");
+  Serial.print(int(bN)); Serial.print(",");
+  Serial.print(int(luxN));
+
+  Serial.print(" -> ");
+  Serial.println(color);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
     if (colorN == FOLLOW_COLORS[i]) {
       motorsForward(FWD_PWM, FWD_PWM);
@@ -300,13 +387,22 @@ void loop() {
     }
 
 
-  pivotLeft(70, 70); delay(600);
-  motorsBrake(); delay(400);
+  pivotLeft(90, 90); delay(400);
+  motorsBrake(); 
+  delay(1000);
 
 
 
   float rL, gL, bL, luxL;
-  String colorL = readColorOnce(rL, gL, bL, luxN);
+  String colorL = readColorOnce(rL, gL, bL, luxL);
+  Serial.print("RGB: ");
+  Serial.print(int(rL)); Serial.print(",");
+  Serial.print(int(gL)); Serial.print(",");
+  Serial.print(int(bL)); Serial.print(",");
+  Serial.print(int(luxL));
+
+  Serial.print(" -> ");
+  Serial.println(color);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
     if (colorL == FOLLOW_COLORS[i]) {
       motorsForward(FWD_PWM, FWD_PWM);
@@ -315,11 +411,20 @@ void loop() {
     }
 
 
-  pivotRight(70, 70); delay(600);
-  motorsBrake(); delay(400);
+  pivotRight(90, 90); delay(400);
+  motorsBrake(); 
+  delay(1000);
 
   float rR, gR, bR, luxR;
-  String colorR = readColorOnce(rR, gR, bR, luxN);
+  String colorR = readColorOnce(rR, gR, bR, luxR);
+  Serial.print("RGB: ");
+  Serial.print(int(rR)); Serial.print(",");
+  Serial.print(int(gR)); Serial.print(",");
+  Serial.print(int(bR)); Serial.print(",");
+  Serial.print(int(luxR));
+
+  Serial.print(" -> ");
+  Serial.println(color);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
     if (colorR == FOLLOW_COLORS[i]) {
       motorsForward(FWD_PWM, FWD_PWM);
@@ -327,10 +432,18 @@ void loop() {
       return;
     }
 
-  pivotRight(70, 70); delay(600);
+  pivotRight(90, 90); delay(400);
   motorsBrake(); delay(400);
 
-  colorR = readColorOnce(rR, gR, bR, luxN);
+  colorR = readColorOnce(rR, gR, bR, luxR);
+  Serial.print("RGB: ");
+  Serial.print(int(rR)); Serial.print(",");
+  Serial.print(int(gR)); Serial.print(",");
+  Serial.print(int(bR)); Serial.print(",");
+  Serial.print(int(luxR));
+
+  Serial.print(" -> ");
+  Serial.println(color);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
     if (colorR == FOLLOW_COLORS[i]) {
       motorsForward(FWD_PWM, FWD_PWM);
@@ -338,8 +451,9 @@ void loop() {
       return;
     }
 
-  pivotLeft(70, 70); delay(600);
-  motorsBrake(); delay(400);
+  pivotLeft(90, 90); delay(400);
+  motorsBrake(); 
+  delay(1000);
 
   colorN = readColorOnce(rN, gN, bN, luxN);
   for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
