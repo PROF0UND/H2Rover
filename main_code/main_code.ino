@@ -6,7 +6,7 @@
 
 // ------------------ DHT11 Sensor ------------------
 //CHANGE CODE
-DHT11 dht11(2);
+DHT11 dht11(10);
 
 bool justRecoveredFromBoundary = false;
 
@@ -17,6 +17,13 @@ bool firstTimeTurned = false;
 
 
 //CHANGE CODE
+
+const int TURBIDITY_PIN = A0;         // Analog input for sensor
+const int OUTPUT_PIN    = 11;          // Digital output (LED/relay/etc.)
+float sensorValue = 0.0;
+float volt        = 0.0;
+float ntu         = 0.0;
+float threshold = 2135.0;
 const uint8_t PWMA = 9;
 const uint8_t AIN1 = 8;
 const uint8_t AIN2 = 7;
@@ -34,7 +41,7 @@ const uint8_t STBY = 6;
 
 
 //CHANGE CODE
-const String FOLLOW_COLORS[] = {"BLACK", "GREEN", "GREEN"};
+const String FOLLOW_COLORS[] = {"BLACK", "RED", "YELLOW"};
 const int NUM_FOLLOW_COLORS = sizeof(FOLLOW_COLORS) / sizeof(FOLLOW_COLORS[0]);
 
 
@@ -44,8 +51,8 @@ const String RIGHT_BOUNDARY_COLOR = "ORANGE";
 
 
 //color on the right
-const String LEFT_TURN_MARKER  = "RED";
-const String RIGHT_TURN_MARKER = "BLUE";
+const String LEFT_TURN_MARKER  = "BLUE";
+const String RIGHT_TURN_MARKER = "GREEN";
 
 
 // ================== SPEED CONTROLS ==================
@@ -191,10 +198,11 @@ bool handleColorReaction(String color, float r, float g, float b, float lux) {
       }
 
       // ---------- ONLY PURPLE gets the quick pulse ----------
-      if (color == "YELLOW") {
+      if (color == "PURPLE") {
           motorsForward(100, 100);   // quick burst
           delay(50);
-          
+          motorsBrake();
+          delay(5);
       }
 
       // ---------- Normal color-follow movement ----------
@@ -225,16 +233,16 @@ bool handleColorReaction(String color, float r, float g, float b, float lux) {
 
 // ================== COLOR DETECTION ==================
 String detectColor(float r, float g, float b, float lux) {
-  if ((r >= 100 && r <= 120) && (g >= 75 && g <= 90) && (b >= 50 && b <= 65) && (lux >= 7 && lux <= 20)) return "BLACK";
+  if ((r >= 100 && r <= 120) && (g >= 75 && g <= 90) && (b >= 50 && b <= 65) && (lux >= 7 && lux <= 17)) return "BLACK";
   if ((r >= 85 && r <= 95) && (g >= 80 && g <= 87) && (b >= 55 && b <= 65)) return "WHITE";
   if ((r >= 125 && r <= 135) && (g >= 55 && g <= 65) && (b >= 50 && b <= 60)) return "PINK";
   if ((r >= 150 && r <= 180) && (g >= 35 && g <= 65) && (b >= 25 && b <= 55))   return "RED";
   if ((r >= 85  && r <= 100) && (g >= 87 && g <= 95) && (b >= 50 && b <= 60))  return "GREEN";
   if ((r >= 55  && r <= 75) && (g >= 65  && g <= 80) && (b >= 90 && b <= 120)) return "BLUE";
   if ((r >= 105 && r <= 130) && (g >= 85  && g <= 115) && (b >= 20 && b <= 50))  return "YELLOW";
-  if ((r >= 95 && r <= 120) && (g >= 57   && g <= 70)  && (b >= 65 && b <= 75)) return "PURPLE";
+  if ((r >= 95 && r <= 140) && (g >= 57   && g <= 70)  && (b >= 55 && b <= 75)) return "PURPLE";
   if ((r >= 135 && r <= 150) && (g >= 60   && g <= 70)  && (b >= 25 && b <= 40)) return "ORANGE";
-  if ((r >= 98 && r <= 104) && (g >= 78   && g <= 84)  && (b >= 48 && b <= 57)) return "FLOOR";
+  if ((r >= 98 && r <= 106) && (g >= 78   && g <= 84)  && (b >= 48 && b <= 57)) return "FLOOR";
   return "UNKNOWN";
 }
 
@@ -310,6 +318,32 @@ void loop() {
   Serial.print(" -> ");
   Serial.println(color);
 
+ sensorValue = analogRead(TURBIDITY_PIN);
+
+
+  // Convert ADC reading (0–1023) to voltage (0–5V)
+  volt = sensorValue * (5.0 / 1023.0);
+
+
+  // NTU calculation
+  ntu = -1120.4 * sq(volt) + 5742.3 * volt - 4353.8;
+
+
+  // Control output pin based on NTU vs threshold
+  if (ntu < threshold) {
+    digitalWrite(OUTPUT_PIN, HIGH);
+  } else {
+    digitalWrite(OUTPUT_PIN, LOW);
+  }
+
+
+  // Log locally
+  Serial.print("ADC: ");
+  Serial.print(sensorValue);
+  Serial.print("  Volt: ");
+  Serial.print(volt);
+  Serial.print(" V  NTU: ");
+  Serial.println(ntu);
 
   //************MOVE******************************/
 
@@ -405,5 +439,5 @@ void loop() {
 
 
   motorsBrake();
-  delay(10);
+ 
 }
