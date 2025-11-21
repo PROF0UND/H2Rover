@@ -110,7 +110,7 @@ void correctLeftBoundary() {
   for (int i = 0; i < 10; i++) {           // a few quick nudges
     delay(50);
     pivotRight(150, 150);                   // slightly stronger turn
-    delay(150);                            // short movement
+    delay(300);                            // short movement
     motorsBrake();
     delay(10);
 
@@ -132,7 +132,7 @@ void correctRightBoundary() {
   for (int i = 0; i < 10; i++) {
     delay(50);
    pivotLeft(150, 150);
-    delay(150);
+    delay(300);
     motorsBrake();
     delay(10);
 
@@ -145,6 +145,10 @@ void correctRightBoundary() {
   }
   motorsBrake();
 }
+
+
+
+
 
 // =======================================================
 //  HANDLE COLOR REACTION (your whole block as a function)
@@ -177,21 +181,27 @@ bool handleColorReaction(String color, float r, float g, float b, float lux) {
     if (color == FOLLOW_COLORS[i]) isFollowColor = true;
 
   if (isFollowColor) {
-    uint8_t pwm = FWD_PWM;
-    uint16_t step = 15;
+      uint8_t pwm = FWD_PWM;
+      uint16_t step = 15;
 
-    if (justRecoveredFromBoundary) {
-      pwm = 40;
-      step = 15;
-      justRecoveredFromBoundary = false;
-    }
+      if (justRecoveredFromBoundary) {
+        pwm = 50;
+        step = 15;
+        justRecoveredFromBoundary = false;
+      }
 
-    motorsForward(pwm, pwm);
-    delay(150);
-    motorsBrake();
-    delay(150);
+      // ---------- ONLY PURPLE gets the quick pulse ----------
+      if (color == "YELLOW") {
+          motorsForward(100, 100);   // quick burst
+          delay(50);
+          
+      }
 
-    return true;
+      // ---------- Normal color-follow movement ----------
+      motorsForward(pwm, pwm);
+      delay(300);
+
+      return true;
   }
 
   // ---------- BOUNDARIES ----------
@@ -301,73 +311,19 @@ void loop() {
   Serial.println(color);
 
 
-   if (color == LEFT_TURN_MARKER) {
-    motorsBrake(); delay(100);
-    correctRightBoundary();
-    
-    return;
-  }
+  //************MOVE******************************/
 
-  
-  if (color == "FLOOR" ){
-    motorsBrake(); delay(100);
-    motorsBackward(50, 50); delay(10);
-    return;
-  }
+  // Try reacting to the color
+  bool handled = handleColorReaction(color, r, g, b, lux);
 
-
-  if (color == RIGHT_TURN_MARKER) {
-    motorsBrake(); delay(100);
-    correctLeftBoundary();
-    
-    return;
-  }
-
-
-  bool isFollowColor = false;
-  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
-    if (color == FOLLOW_COLORS[i]) isFollowColor = true;
-
-
-  if (isFollowColor) {
-    uint8_t pwm = FWD_PWM;
-    delay(500);
-    uint16_t step = 15;
-
-    if (justRecoveredFromBoundary) {
-      // Be more gentle on the first step after a boundary correction
-      pwm = 40;          // a bit slower
-      step = 15;         // shorter burst
-      justRecoveredFromBoundary = false;
-    }
-
-    motorsForward(pwm, pwm);  // move
-    delay(150);              // for a short time (step)
-    motorsBrake();            // stop
-    delay(150);              // small pause (step)
-
-  }
-
-
-
-  if (color == LEFT_BOUNDARY_COLOR) {
-    motorsBrake(); delay(100);
-    correctLeftBoundary();
-    return;
-  }
-
-  if (color == RIGHT_BOUNDARY_COLOR) {
-    motorsBrake(); delay(100);
-    correctRightBoundary();
-    
-    return;
-  }
+  if (handled) return;    // color logic already did the action
 
 
   // Recovery sequence
-  motorsForward(FWD_PWM, FWD_PWM); delay(70);
-  motorsBrake(); delay(100);
-
+  motorsForward(FWD_PWM, FWD_PWM); 
+  delay(70);
+  motorsBrake(); 
+  delay(100);
 
   float rN, gN, bN, luxN;
   String colorN = readColorOnce(rN, gN, bN, luxN);
@@ -376,22 +332,17 @@ void loop() {
   Serial.print(int(gN)); Serial.print(",");
   Serial.print(int(bN)); Serial.print(",");
   Serial.print(int(luxN));
-
   Serial.print(" -> ");
-  Serial.println(color);
-  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
-    if (colorN == FOLLOW_COLORS[i]) {
-      motorsForward(FWD_PWM, FWD_PWM);
-      //delay(step);   //edited
-      return;
-    }
+  Serial.println(colorN);
+
+  if (handleColorReaction(colorN, rN, gN, bN, luxN)) return;
 
 
-  pivotLeft(90, 90); delay(400);
-  motorsBrake(); 
+  // ---- left sweep ----
+  pivotLeft(90, 90); 
+  delay(400);
+  motorsBrake();
   delay(1000);
-
-
 
   float rL, gL, bL, luxL;
   String colorL = readColorOnce(rL, gL, bL, luxL);
@@ -400,19 +351,16 @@ void loop() {
   Serial.print(int(gL)); Serial.print(",");
   Serial.print(int(bL)); Serial.print(",");
   Serial.print(int(luxL));
-
   Serial.print(" -> ");
-  Serial.println(color);
-  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
-    if (colorL == FOLLOW_COLORS[i]) {
-      motorsForward(FWD_PWM, FWD_PWM);
-      //delay(step) ;  //edited
-      return;
-    }
+  Serial.println(colorL);
+
+  if (handleColorReaction(colorL, rL, gL, bL, luxL)) return;
 
 
-  pivotRight(90, 90); delay(400);
-  motorsBrake(); 
+  // ---- right sweep 1 ----
+  pivotRight(90, 90); 
+  delay(400);
+  motorsBrake();
   delay(1000);
 
   float rR, gR, bR, luxR;
@@ -422,18 +370,17 @@ void loop() {
   Serial.print(int(gR)); Serial.print(",");
   Serial.print(int(bR)); Serial.print(",");
   Serial.print(int(luxR));
-
   Serial.print(" -> ");
-  Serial.println(color);
-  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
-    if (colorR == FOLLOW_COLORS[i]) {
-      motorsForward(FWD_PWM, FWD_PWM);
-      //delay(step);   //edited
-      return;
-    }
+  Serial.println(colorR);
 
-  pivotRight(90, 90); delay(400);
-  motorsBrake(); delay(400);
+  if (handleColorReaction(colorR, rR, gR, bR, luxR)) return;
+
+
+  // ---- right sweep 2 ----
+  pivotRight(90, 90); 
+  delay(400);
+  motorsBrake();
+  delay(400);
 
   colorR = readColorOnce(rR, gR, bR, luxR);
   Serial.print("RGB: ");
@@ -441,27 +388,20 @@ void loop() {
   Serial.print(int(gR)); Serial.print(",");
   Serial.print(int(bR)); Serial.print(",");
   Serial.print(int(luxR));
-
   Serial.print(" -> ");
-  Serial.println(color);
-  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
-    if (colorR == FOLLOW_COLORS[i]) {
-      motorsForward(FWD_PWM, FWD_PWM);
-      //delay(step);   //edited
-      return;
-    }
+  Serial.println(colorR);
 
-  pivotLeft(90, 90); delay(400);
-  motorsBrake(); 
+  if (handleColorReaction(colorR, rR, gR, bR, luxR)) return;
+
+
+  // ---- final left sweep ----
+  pivotLeft(90, 90); 
+  delay(400);
+  motorsBrake();
   delay(1000);
 
   colorN = readColorOnce(rN, gN, bN, luxN);
-  for (int i = 0; i < NUM_FOLLOW_COLORS; i++)
-    if (colorN == FOLLOW_COLORS[i]) {
-      motorsForward(FWD_PWM, FWD_PWM);
-      //delay(step);   //edited
-      return;
-    }
+  if (handleColorReaction(colorN, rN, gN, bN, luxN)) return;
 
 
   motorsBrake();
