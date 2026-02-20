@@ -9,4 +9,4 @@
 1. Moved the color response if statements into one function.
 2. Improved the recovery algorithm.
 
-## READ H2ROVER.pdf FOR DETAILED ANALYSIS ON CHANGES!!
+## READ H2_rover_code.pdf FOR DETAILED ANALYSIS ON CHANGES!!
