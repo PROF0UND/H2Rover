@@ -7,4 +7,4 @@
 ## Main_code changes:
 
 1. Moved the color response if statements into one function.
-2. Improoved the recovery algorithm.
+2. Improved the recovery algorithm.
